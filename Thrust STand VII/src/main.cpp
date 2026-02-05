@@ -43,6 +43,9 @@ float current = 0; //amps
 float voltage = 0; //volts
 float RPM = 0;
 float throttle = 0;
+long currentDraw = 0; //amps you want to draw in battery load test
+long ampHours = 0; //total amp hours you want to deplete
+long currentTestGain = 0; // ms
 
 //Calculated Variables
 float electricPower = 0; //watts
@@ -248,6 +251,10 @@ MenuItem menus[] = {
                 {2222, "Interval Time", TYPE_VALUE, 222, &intervalTime},
                 {2223, "Max Throttle (0-100%)", TYPE_VALUE, 222, &testThrottleMax, NULL},
                 {2224, "Ramp Settle Time (ms)", TYPE_VALUE, 222, &rampSettleTime, NULL},
+            {223, "Battery Test", TYPE_SUBMENU, 22, NULL, NULL},
+                {2231, "Total Amp Hours to depleat (Milli-amp Hour)", TYPE_VALUE, 223, &ampHours, NULL},
+                {2232, "Current target (Milli-amps)", TYPE_VALUE, 223, &currentDraw, NULL},
+                {2233, "Gain (ms)", TYPE_VALUE, 223, &currentTestGain, NULL},
         {23, "Configure Hardware", TYPE_SUBMENU, 2, NULL, NULL},
             {231, "RPM Marker Count", TYPE_VALUE, 23, &pulsesPerRev, NULL},
             {232, "RPM Update Rate (ms)", TYPE_VALUE, 23, &rpmUpdateRate, NULL},
@@ -1287,7 +1294,52 @@ void runSteppedRampTest(){
 }
 
 void runBatteryTest(){
+    if(!setUpTest()){
+        return;
+    }
 
+    wdt_enable(WDTO_2S); //this is the watchdog timer. If it goes 2s without wdt_reset being called, the board will do a hardware reset.
+    wdt_reset();
+   
+    //initialize the test variables
+    bool testRunning = true;
+    throttle = 0.0;
+    float totalAmpHoursDrawn = 0;
+    float currentDrawAmps = (float)currentDraw/1000;
+    while(testRunning){
+        if(getCurrent() < currentDrawAmps){
+            throttle += 1;
+            setThrottle(throttle);
+        } else if(getCurrent() > currentDrawAmps){
+            throttle -= 1;
+            setThrottle(throttle);
+        }
+
+        //verify getCurrent() returns current in Amps so the conversion is correct
+        totalAmpHoursDrawn += ((getCurrent()*1000)*(currentTestGain/1000))/3600;
+
+        readSensorData();
+        displaySensorData();
+        writeSensorSD();
+
+        if(totalAmpHoursDrawn >= ampHours){
+            throttle = 0;
+            setThrottle(0);
+            testRunning = false;
+            break; //exit the while loop
+        }
+
+        char userInput = customKeypad.getKey();
+        if(userInput){
+            throttle = 0;
+            setThrottle(0);
+            testRunning = false;
+            break; //exit the while loop
+        }
+
+        delay(currentTestGain);
+        wdt_reset();
+    }
 }
 
 void runTest(){//this method is in charge of deciding which test to run and then running it
@@ -1300,7 +1352,7 @@ void runTest(){//this method is in charge of deciding which test to run and then
     else if(testType == 3){ //run piecewise test
         runPiecewiseTest();
     }
-    else if(testType == 4){
+    else if(testType == 4){ 
         runBatteryTest();
     }
 }
