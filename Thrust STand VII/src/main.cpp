@@ -1307,10 +1307,10 @@ void runBatteryTest(){
     float totalAmpHoursDrawn = 0;
     float currentDrawAmps = (float)currentDraw/1000;
     while(testRunning){
-        if(getCurrent() < currentDrawAmps){
+        if(getCurrent() < currentDrawAmps && throttle < testThrottleMax){
             throttle += 1;
             setThrottle(throttle);
-        } else if(getCurrent() > currentDrawAmps){
+        } else if(getCurrent() > currentDrawAmps && throttle > 0){
             throttle -= 1;
             setThrottle(throttle);
         }
