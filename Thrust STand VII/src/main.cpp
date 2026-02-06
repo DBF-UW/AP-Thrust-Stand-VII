@@ -1223,47 +1223,53 @@ void runPiecewiseTest(){
         setThrottle(0);
         wdt_disable();
 
-        pauseScreen(); 
-        while(testRunning){ //prompt user to continue/end test
-            char userInput = customKeypad.getKey();
-            if(userInput){
-                Serial.println(userInput);
-                if(userInput == '*'){ //end test
-                    testRunning = false; //break out of the main testing loop 
-                    break;
-                }
-                else if(userInput == '#'){ //continue test
-                    break;
-                }
-            }
-        }
-
-        promptPropSwap();
-        while(testRunning){ //prompt user to unplug motor, swap props, and continue/end test
-            char userInput = customKeypad.getKey();
-            if(userInput){
-                Serial.println(userInput);
-                if(userInput == '*'){ //end test
-                    testRunning = false; //break out of the main testing loop 
-                    break;
-                }
-                else if(userInput == '#'){ //continue test
-                    break;
+        if(testRunning){
+            pauseScreen(); 
+            while(true){ //prompt user to continue/end test
+                char userInput = customKeypad.getKey();
+                if(userInput){
+                    Serial.println(userInput);
+                    if(userInput == '*'){ //end test
+                        testRunning = false; //break out of the main testing loop 
+                        break;
+                    }
+                    else if(userInput == '#'){ //continue test
+                        break;
+                    }
                 }
             }
         }
 
-        promptPlugInMotor();
-        while(testRunning){ //prompt user to plug in motor and continue/end test
-            char userInput = customKeypad.getKey();
-            if(userInput){
-                Serial.println(userInput);
-                if(userInput == '*'){ //end test
-                    testRunning = false; //break out of the main testing loop 
-                    break;
+        if(testRunning){
+            promptPropSwap();
+            while(true){ //prompt user to unplug motor, swap props, and continue/end test
+                char userInput = customKeypad.getKey();
+                if(userInput){
+                    Serial.println(userInput);
+                    if(userInput == '*'){ //end test
+                        testRunning = false; //break out of the main testing loop 
+                        break;
+                    }
+                    else if(userInput == '#'){ //continue test
+                        break;
+                    }
                 }
-                else if(userInput == '#'){ //continue test
-                    break;
+            }
+        }
+
+        if(testRunning){
+            promptPlugInMotor();
+            while(true){ //prompt user to plug in motor and continue/end test
+                char userInput = customKeypad.getKey();
+                if(userInput){
+                    Serial.println(userInput);
+                    if(userInput == '*'){ //end test
+                        testRunning = false; //break out of the main testing loop 
+                        break;
+                    }
+                    else if(userInput == '#'){ //continue test
+                        break;
+                    }
                 }
             }
         }
