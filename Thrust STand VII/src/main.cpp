@@ -43,9 +43,9 @@ float current = 0; //amps
 float voltage = 0; //volts
 float RPM = 0;
 float throttle = 0;
-long currentDraw = 0; //amps you want to draw in battery load test
-long ampHours = 0; //total amp hours you want to deplete
-long currentTestGain = 0; // ms
+long currentDraw = 10000; //amps you want to draw in battery load test
+long milliAmpHours = 1000; //total amp hours you want to deplete
+long currentTestGain = 50; // ms
 
 //Calculated Variables
 float electricPower = 0; //watts
@@ -252,8 +252,8 @@ MenuItem menus[] = {
                 {2223, "Max Throttle (0-100%)", TYPE_VALUE, 222, &testThrottleMax, NULL},
                 {2224, "Ramp Settle Time (ms)", TYPE_VALUE, 222, &rampSettleTime, NULL},
             {223, "Battery Test", TYPE_SUBMENU, 22, NULL, NULL},
-                {2231, "Total Amp Hours to depleat (Milli-amp Hour)", TYPE_VALUE, 223, &ampHours, NULL},
-                {2232, "Current target (Milli-amps)", TYPE_VALUE, 223, &currentDraw, NULL},
+                {2231, "Amp Hours (mA-Hour)", TYPE_VALUE, 223, &milliAmpHours, NULL},
+                {2232, "Current target (mA)", TYPE_VALUE, 223, &currentDraw, NULL},
                 {2233, "Gain (ms)", TYPE_VALUE, 223, &currentTestGain, NULL},
         {23, "Configure Hardware", TYPE_SUBMENU, 2, NULL, NULL},
             {231, "RPM Marker Count", TYPE_VALUE, 23, &pulsesPerRev, NULL},
@@ -810,9 +810,9 @@ void promptPropSwap(){ //prompt to tell user to unplug motor and swap props
     u8g2.drawLine(99, 19, 120, 19);
 
     u8g2.setFont(u8g2_font_5x8_tr);
-    u8g2.drawStr(4, 46, "Press * to Continue Test");
+    u8g2.drawStr(4, 46, "Press # to Continue Test");
 
-    u8g2.drawStr(16, 58, "Press # to End Test");
+    u8g2.drawStr(16, 58, "Press * to End Test");
 
     u8g2.drawLine(0, 34, 127, 34);
 
@@ -826,9 +826,9 @@ void promptPlugInMotor(){ //Prompt the user to plug motor back in after prop has
     u8g2.setFont(u8g2_font_5x8_tr);
     u8g2.drawStr(33, 14, "Plug in Motor");
 
-    u8g2.drawStr(4, 35, "Press * to Continue Test");
+    u8g2.drawStr(4, 35, "Press # to Continue Test");
 
-    u8g2.drawStr(18, 53, "Press # to End Test");
+    u8g2.drawStr(18, 53, "Press * to End Test");
 
     u8g2.drawLine(127, 17, 0, 17);
 
@@ -957,6 +957,19 @@ bool setUpTest(){//call this function to set up the file with the correct header
     u8g2.setFont(u8g2_font_5x7_tr);
     u8g2.drawStr(3, 55, "Cancel: *");
     u8g2.drawStr(3, 47, "Start: #");
+
+    if(testType == 1){
+        u8g2.drawStr(3, 39, "Test Type: Smooth Ramp Up");
+    }
+    else if(testType == 2){
+        u8g2.drawStr(3, 39, "Test Type: Intervals Ramp Up");
+    }
+    else if(testType == 3){
+        u8g2.drawStr(3, 39, "Test Type: Motor Profile Testing");
+    }
+    else if(testType == 4){
+        u8g2.drawStr(3, 39, "Test Type: Battery Load Testing");
+    }
     u8g2.sendBuffer();
 
     while(1){
@@ -1034,15 +1047,19 @@ void selectProfile(){
             Serial.println(userInput);
             if(userInput == '1'){ //Smooth ramp 
                 testType = 1;
+                break;
             }
             else if(userInput == '2'){ //Intervals
                 testType = 2;
+                break;
             }
             else if(userInput == '3'){ //motor testing
                 testType = 3;
+                break;
             }   
             else if(userInput == '4'){ //battery testing
                 testType = 4;
+                break;
             }
         }
     }
@@ -1134,11 +1151,11 @@ void runPiecewiseTest(){
             char userInput = customKeypad.getKey();
             if(userInput){
                 Serial.println(userInput);
-                if(userInput == '*'){ //continue test
+                if(userInput == '*'){ //end test
+                    testRunning = false; //break out of the main testing loop 
                     break;
                 }
-                else if(userInput == '#'){ //end test
-                    testRunning = false; //break out of the main testing loop 
+                else if(userInput == '#'){ //continue test
                     break;
                 }
             }
@@ -1149,11 +1166,11 @@ void runPiecewiseTest(){
             char userInput = customKeypad.getKey();
             if(userInput){
                 Serial.println(userInput);
-                if(userInput == '*'){ //continue test
+                if(userInput == '*'){ //end test
+                    testRunning = false; //break out of the main testing loop 
                     break;
                 }
-                else if(userInput == '#'){ //end test
-                    testRunning = false; //break out of the main testing loop 
+                else if(userInput == '#'){ //continue test
                     break;
                 }
             }
@@ -1164,11 +1181,11 @@ void runPiecewiseTest(){
             char userInput = customKeypad.getKey();
             if(userInput){
                 Serial.println(userInput);
-                if(userInput == '*'){ //continue test
+                if(userInput == '*'){ //end test
+                    testRunning = false; //break out of the main testing loop 
                     break;
                 }
-                else if(userInput == '#'){ //end test
-                    testRunning = false; //break out of the main testing loop 
+                else if(userInput == '#'){ //continue test
                     break;
                 }
             }
@@ -1307,22 +1324,25 @@ void runBatteryTest(){
     float totalAmpHoursDrawn = 0;
     float currentDrawAmps = (float)currentDraw/1000;
     while(testRunning){
-        if(getCurrent() < currentDrawAmps && throttle < testThrottleMax){
+        float currentReading = getCurrent();
+        Serial.println("Raw Current:" + String(currentReading));
+        if(currentReading < currentDrawAmps && throttle < testThrottleMax){
             throttle += 1;
             setThrottle(throttle);
-        } else if(getCurrent() > currentDrawAmps && throttle > 0){
+        } else if(currentReading > currentDrawAmps && throttle > 0){
             throttle -= 1;
             setThrottle(throttle);
         }
 
         //verify getCurrent() returns current in Amps so the conversion is correct
-        totalAmpHoursDrawn += ((getCurrent()*1000)*(currentTestGain/1000))/3600;
-
+        totalAmpHoursDrawn += ((currentReading*1000)*(currentTestGain/1000))/3600;
+        Serial.println("Amp-hours drawn: " + String(totalAmpHoursDrawn));
         readSensorData();
         displaySensorData();
         writeSensorSD();
 
-        if(totalAmpHoursDrawn >= ampHours){
+        if(totalAmpHoursDrawn >= milliAmpHours){
+            Serial.println("Sufficient Amp Hours Drawn");
             throttle = 0;
             setThrottle(0);
             testRunning = false;
