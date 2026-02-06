@@ -43,9 +43,6 @@ float current = 0; //amps
 float voltage = 0; //volts
 float RPM = 0;
 float throttle = 0;
-long currentDraw = 10000; //amps you want to draw in battery load test
-long milliAmpHours = 1000; //total amp hours you want to deplete
-long currentTestGain = 50; // ms
 
 //Calculated Variables
 float electricPower = 0; //watts
@@ -54,6 +51,7 @@ float propellerPower = 0; //watts
 float motorEfficiency = 0; //0-100%
 float propellerEfficiency = 0; //0-100%
 float systemEfficiency = 0; //0-100%
+float mahDrawn = 0;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 //SD CARD
@@ -149,6 +147,11 @@ bool upDown = true; //if true, go up and then back down
 long intervalCount = 8;
 long intervalTime = 4;
 long rampSettleTime = 1000;
+
+//battery test
+long targetAmpDraw = 10; //target current draw you want to during depletion test, in amps
+long dischargeAmount = 1000; //total battery you want to deplete, in milli-amp-hours
+long currentTestGain = 50; // ms
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 //KEYBOARD SETUP
@@ -252,8 +255,8 @@ MenuItem menus[] = {
                 {2223, "Max Throttle (0-100%)", TYPE_VALUE, 222, &testThrottleMax, NULL},
                 {2224, "Ramp Settle Time (ms)", TYPE_VALUE, 222, &rampSettleTime, NULL},
             {223, "Battery Test", TYPE_SUBMENU, 22, NULL, NULL},
-                {2231, "Amp Hours (mA-Hour)", TYPE_VALUE, 223, &milliAmpHours, NULL},
-                {2232, "Current target (mA)", TYPE_VALUE, 223, &currentDraw, NULL},
+                {2231, "Discharge Amount (mAh)", TYPE_VALUE, 223, &dischargeAmount, NULL},
+                {2232, "Current Draw (A)", TYPE_VALUE, 223, &targetAmpDraw, NULL},
                 {2233, "Gain (ms)", TYPE_VALUE, 223, &currentTestGain, NULL},
         {23, "Configure Hardware", TYPE_SUBMENU, 2, NULL, NULL},
             {231, "RPM Marker Count", TYPE_VALUE, 23, &pulsesPerRev, NULL},
@@ -708,6 +711,7 @@ int getRPM() { //returns RPM. Updates once per rpm update ms
 
 void resetSensorData(){ //call to reset all sensor state variables to 0
     //Sense Variables;
+    testStartTime = millis();
     testTime = 0;
     thrust = 0;
     torque = 0;
@@ -723,6 +727,7 @@ void resetSensorData(){ //call to reset all sensor state variables to 0
     motorEfficiency = 0;
     propellerEfficiency = 0;
     systemEfficiency = 0;
+    mahDrawn = 0;
 }
 
 void readSensorData(){ //call to update all of the sensor data to match most recently collected values
@@ -750,8 +755,7 @@ void readSensorData(){ //call to update all of the sensor data to match most rec
     //float airspeed
     airspeed = getAirspeed();
 
-    //time
-    testTime = millis()/1000.0 - testStartTime;
+
     
     //Calculated Variables
     electricPower = abs(voltage*current); //watts
@@ -760,6 +764,10 @@ void readSensorData(){ //call to update all of the sensor data to match most rec
     motorEfficiency = abs(mechanicalPower/electricPower);
     propellerEfficiency = abs(propellerPower/mechanicalPower);
     systemEfficiency = abs(propellerPower/electricPower);
+    mahDrawn += current*1000*(float)(millis()-testTime)/(3600000.0);
+
+    //IT IS IMPORTANT THAT TIME IS CALCULATED LAST, SINCE IT IS USED IN CALCULATION FOR MAH DRAWN
+    testTime = (millis() - testStartTime)/1000;
  
 }
 
@@ -838,7 +846,7 @@ void promptPlugInMotor(){ //Prompt the user to plug motor back in after prop has
 void displaySensorData(){//call to display all relevant test data. Needs to be passed current thrust
     u8g2.clearBuffer(); //prepare the screen for writing
     u8g2.setFont(u8g2_font_6x12_tr);
-    u8g2.drawStr(2, 9, "Test Running..."); 
+    u8g2.drawStr(2, 9, "Stop Test Any Key"); 
     u8g2.drawLine(0, 10, 128, 10); //draw line across bottom
 
     u8g2.setFont(u8g2_font_squeezed_r6_tr); //set small font for submenus
@@ -850,6 +858,7 @@ void displaySensorData(){//call to display all relevant test data. Needs to be p
     u8g2.setCursor(1, 40); u8g2.print("VLTS: "); u8g2.print(voltage);
     u8g2.setCursor(1, 47); u8g2.print("AMPS: "); u8g2.print(current); 
     u8g2.setCursor(1, 54); u8g2.print("ASPD (M/S): "); u8g2.print(airspeed); //m/s
+    u8g2.setCursor(1, 61); u8g2.print("MAH-DRAWN: "); u8g2.print(mahDrawn);
 
     //right bar
     u8g2.setCursor(64, 19); u8g2.print("THRTL: %"); u8g2.print(throttle);
@@ -860,7 +869,6 @@ void displaySensorData(){//call to display all relevant test data. Needs to be p
     u8g2.setCursor(64, 54); u8g2.print("PRP-EF: % "); u8g2.print(propellerEfficiency);
     u8g2.setCursor(64, 61); u8g2.print("SYS-EF: % "); u8g2.print(systemEfficiency);
 
-    u8g2.drawStr(1, 63, "Stop Test Any Key");
     u8g2.sendBuffer();   
 }
 
@@ -944,7 +952,7 @@ bool setUpTest(){//call this function to set up the file with the correct header
     Serial.println(filename);
 
     // Write CSV header
-    dataFile.println("Time (s),Current (A),Voltage (V),Torque(N.mm),Thrust(mN),RPM,Airspeed(m/s),Throttle (%),Electrical Power (W),Mechanical Power (W),Propulsive Power (W),Motor Efficiency (%), Propeller Efficiency (%), System Efficiency (%)");
+    dataFile.println("Time (s),Current (A),Voltage (V),Torque(N.mm),Thrust(mN),RPM,Airspeed(m/s),Throttle (%),Electrical Power (W),Mechanical Power (W),Propulsive Power (W),Motor Efficiency (%), Propeller Efficiency (%), System Efficiency (%), mAh Drawn (mAh)");
     dataFile.flush();   // Ensure data is written to the card
 
     Serial.println("Header written successfully.");
@@ -996,7 +1004,7 @@ void writeSensorSD(){
     dataFile.print(voltage, 3);             dataFile.print(','); // float
     dataFile.print(torque, 3);              dataFile.print(','); // float
     dataFile.print(thrust, 3);              dataFile.print(','); // float
-    dataFile.print(RPM, 1);                    dataFile.print(','); // int
+    dataFile.print(RPM, 1);                 dataFile.print(','); // int
     dataFile.print(airspeed, 3);            dataFile.print(','); // float
     dataFile.print(throttle, 1);            dataFile.print(','); // float
     dataFile.print(electricPower, 3);       dataFile.print(','); // float
@@ -1004,7 +1012,8 @@ void writeSensorSD(){
     dataFile.print(propellerPower, 3);      dataFile.print(','); // float
     dataFile.print(motorEfficiency, 3);     dataFile.print(','); // float
     dataFile.print(propellerEfficiency, 3); dataFile.print(','); // float
-    dataFile.print(systemEfficiency, 3);    dataFile.println();  // float + newline
+    dataFile.print(systemEfficiency, 3);    dataFile.print(',');  // float + newline
+    dataFile.print(mahDrawn, 3);            dataFile.println();
 
     //don't flush all the time
     if ((millis()-lastFlush) > flushPeriodMillis){
@@ -1084,7 +1093,7 @@ void smoothRamp(){
     throttle = 0.0;
     long startTime = millis(); //this is for keeping track of what throttle level to set
     long time = startTime;
-    testStartTime = millis()/1000; //this is for recording time to the SD card in seconds
+
 
     while(testRunning){
         wdt_reset(); //pet that dawg! (cause you're keeping the watchdog from going off by resetting every loop)
@@ -1327,27 +1336,27 @@ void runBatteryTest(){
     //initialize the test variables
     bool testRunning = true;
     throttle = 0.0;
-    float totalAmpHoursDrawn = 0;
-    float currentDrawAmps = (float)currentDraw/1000;
+    float targetMAHdraw = (float)targetAmpDraw*1000;
+
     while(testRunning){
-        float currentReading = getCurrent();
-        Serial.println("Raw Current:" + String(currentReading));
-        if(currentReading < currentDrawAmps && throttle < testThrottleMax){
+
+        readSensorData(); //update current sensor to be used for adjusting the throttle
+
+        Serial.println("Raw Current:" + String(current));
+        if(current < targetMAHdraw && throttle < testThrottleMax){
             throttle += 1;
-            setThrottle(throttle);
-        } else if(currentReading > currentDrawAmps && throttle > 0){
+        } else if(current > targetMAHdraw && throttle > 0){
             throttle -= 1;
-            setThrottle(throttle);
         }
 
-        //verify getCurrent() returns current in Amps so the conversion is correct
-        totalAmpHoursDrawn += ((currentReading*1000)*(currentTestGain/1000))/3600;
-        Serial.println("Amp-hours drawn: " + String(totalAmpHoursDrawn));
-        readSensorData();
+        setThrottle(throttle); //set throttle once it has been adjusted
+
+        Serial.println("mAH drawn: " + String(mahDrawn));
+
         displaySensorData();
         writeSensorSD();
 
-        if(totalAmpHoursDrawn >= milliAmpHours){
+        if(mahDrawn >= dischargeAmount){
             Serial.println("Sufficient Amp Hours Drawn");
             throttle = 0;
             setThrottle(0);
@@ -1355,6 +1364,7 @@ void runBatteryTest(){
             break; //exit the while loop
         }
 
+        //check for test interrupts
         char userInput = customKeypad.getKey();
         if(userInput){
             throttle = 0;
