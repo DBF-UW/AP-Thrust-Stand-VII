@@ -1126,6 +1126,81 @@ void smoothRamp(){
     } 
 }
 
+void steppedRamp(){
+    bool testRunning = true;
+    throttle = 0.0;
+    float throttleStep = testThrottleMax/(float)intervalCount;
+
+    for (int i = 1; i <= intervalCount; i++) {
+
+        float targetThrottle = i*throttleStep;
+
+        //slew throttle to next throttle setting by advancing at a maximum speed of 20% per second
+        while (testRunning && throttle <= targetThrottle-1){
+            throttle = throttle+1;
+            setThrottle(throttle);
+
+            readSensorData();
+            displaySensorData();
+
+            //check for any user input, cancel test if they pressed anything
+            char userInput = customKeypad.getKey();
+            if (userInput){
+                throttle = 0;
+                setThrottle(0);
+                testRunning = false;
+                break; //exit the while loop
+            }
+
+            wdt_reset(); //pet the dogS
+            delay(50);
+        }
+
+        throttle = targetThrottle;
+        setThrottle(throttle); //snug up the throttle to the exact float percentage required
+
+        unsigned long rampStopTime = millis();
+        while (millis() < rampStopTime + (unsigned long)rampSettleTime) { //wait one second for the propulsion system to reach equilibrium
+            readSensorData();
+            displaySensorData();
+            char userInput = customKeypad.getKey();
+            if (userInput){
+                throttle = 0;
+                setThrottle(0);
+                testRunning = false;
+                break; //exit the while loop
+            }
+            Serial.println("Allowing settle time");
+            wdt_reset();
+        }
+
+        wdt_reset();
+        //record data at that throttle setting once the throttle is in the right spot
+        unsigned long stepStartTime = millis();
+        while(testRunning && millis() - stepStartTime <= (unsigned long)intervalTime * 1000){ 
+            wdt_reset();
+
+            readSensorData();
+            displaySensorData();
+            writeSensorSD();
+
+            //check for any user input, cancel test if they pressed anything
+            char userInput = customKeypad.getKey();
+            if (userInput){
+                throttle = 0;
+                setThrottle(0);
+                testRunning = false;
+                break; //exit the while loop
+            }
+        }
+        //once the step is complete, resets to top of for loop and repeats the process.
+
+        if (!testRunning){ //if the user cancels and breaks out of the while loop, break them out of the for loop too
+            break;
+        }
+    }
+}
+
 void runPiecewiseTest(){
     esc.writeMicroseconds(MIN_THROTTLE);
 
@@ -1140,7 +1215,7 @@ void runPiecewiseTest(){
 
     bool testRunning = true;
     while(testRunning){
-        smoothRamp(); //TODO: CHANGE TO INTERVAL RAMP PROFILE AFTER MERGING
+        steppedRamp();
 
         throttle = 0;
         setThrottle(0);
@@ -1228,79 +1303,8 @@ void runSteppedRampTest(){
     wdt_enable(WDTO_2S); //this is the watchdog timer. If it goes 2s without wdt_reset being called, the board will do a hardware reset.
     wdt_reset();
     
-    //initialize the test variables
-    bool testRunning = true;
-    throttle = 0.0;
-    float throttleStep = testThrottleMax/(float)intervalCount;
-
-    for (int i = 1; i <= intervalCount; i++) {
-
-        float targetThrottle = i*throttleStep;
-
-        //slew throttle to next throttle setting by advancing at a maximum speed of 20% per second
-        while (testRunning && throttle <= targetThrottle-1){
-            throttle = throttle+1;
-            setThrottle(throttle);
-
-            readSensorData();
-            displaySensorData();
-
-            //check for any user input, cancel test if they pressed anything
-            char userInput = customKeypad.getKey();
-            if (userInput){
-                throttle = 0;
-                setThrottle(0);
-                testRunning = false;
-                break; //exit the while loop
-            }
-
-            wdt_reset(); //pet the dogS
-            delay(50);
-        }
-
-        throttle = targetThrottle;
-        setThrottle(throttle); //snug up the throttle to the exact float percentage required
-
-        unsigned long rampStopTime = millis();
-        while (millis() < rampStopTime + (unsigned long)rampSettleTime) { //wait one second for the propulsion system to reach equilibrium
-            readSensorData();
-            displaySensorData();
-            char userInput = customKeypad.getKey();
-            if (userInput){
-                throttle = 0;
-                setThrottle(0);
-                testRunning = false;
-                break; //exit the while loop
-            }
-            Serial.println("Allowing settle time");
-            wdt_reset();
-        }
-
-        wdt_reset();
-        //record data at that throttle setting once the throttle is in the right spot
-        unsigned long stepStartTime = millis();
-        while(testRunning && millis() - stepStartTime <= (unsigned long)intervalTime * 1000){ 
-            wdt_reset();
-
-            readSensorData();
-            displaySensorData();
-            writeSensorSD();
-
-            //check for any user input, cancel test if they pressed anything
-            char userInput = customKeypad.getKey();
-            if (userInput){
-                throttle = 0;
-                setThrottle(0);
-                testRunning = false;
-                break; //exit the while loop
-            }
-        }
-        //once the step is complete, resets to top of for loop and repeats the process.
-
-        if (!testRunning){ //if the user cancels and breaks out of the while loop, break them out of the for loop too
-            break;
-        }
-    }
+    //run the stepped ramp test 
+    steppedRamp();
 
     //end the test once all steps have been done
     throttle = 0;
