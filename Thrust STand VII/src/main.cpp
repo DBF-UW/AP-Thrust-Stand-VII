@@ -1156,11 +1156,13 @@ void steppedRamp(){
             delay(50);
         }
 
-        throttle = targetThrottle;
-        setThrottle(throttle); //snug up the throttle to the exact float percentage required
+        if(testRunning){
+            throttle = targetThrottle;
+            setThrottle(throttle); //snug up the throttle to the exact float percentage required
+        }
 
         unsigned long rampStopTime = millis();
-        while (millis() < rampStopTime + (unsigned long)rampSettleTime) { //wait one second for the propulsion system to reach equilibrium
+        while (testRunning && millis() < rampStopTime + (unsigned long)rampSettleTime) { //wait one second for the propulsion system to reach equilibrium
             readSensorData();
             displaySensorData();
             char userInput = customKeypad.getKey();
