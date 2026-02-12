@@ -1358,9 +1358,17 @@ void runBatteryTest(){
 
         Serial.println("Raw Current:" + String(current));
         if(current < targetAmpDraw && throttle < testThrottleMax){
-            throttle += 1;
+            if(abs(current - targetAmpDraw) < 1.5){
+                throttle += 0.1;
+            } else {
+                throttle += 1;
+            }
         } else if(current > targetAmpDraw && throttle > 0){
-            throttle -= 1;
+            if(abs(current - targetAmpDraw) < 1.5){
+                throttle += -0.1;
+            } else {
+                throttle += -1;
+            }
         }
 
         setThrottle(throttle); //set throttle once it has been adjusted
