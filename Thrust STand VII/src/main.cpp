@@ -964,24 +964,28 @@ bool setUpTest(){//call this function to set up the file with the correct header
 
     //prompt the user to begin the test.
     u8g2.clearBuffer();
-    u8g2.setFont(u8g2_font_t0_14b_tr);
-    u8g2.drawStr(2, 15, "Start Test When");
-    u8g2.drawStr(2, 26, "Ready");
+    u8g2.setFont(u8g2_font_t0_12b_tr);
+    u8g2.drawStr(2, 15, "Start Test When Ready");
+    //u8g2.drawStr(2, 26, "Ready");
     u8g2.setFont(u8g2_font_5x7_tr);
     u8g2.drawStr(3, 55, "Cancel: *");
     u8g2.drawStr(3, 47, "Start: #");
 
     if(testType == 1){
-        u8g2.drawStr(3, 39, "Test Type: Smooth Ramp Up");
+        u8g2.drawStr(3, 26, "Test Type: ");
+        u8g2.drawStr(3, 37, "  - Smooth Ramp Up - ");
     }
     else if(testType == 2){
-        u8g2.drawStr(3, 39, "Test Type: Intervals Ramp Up");
+        u8g2.drawStr(3, 26, "Test Type: ");
+        u8g2.drawStr(3, 37, " - Intervals Ramp Up -");
     }
     else if(testType == 3){
-        u8g2.drawStr(3, 39, "Test Type: Motor Profile Testing");
+        u8g2.drawStr(3, 26, "Test Type:");
+        u8g2.drawStr(3, 37, " - Motor Profile Test -");
     }
     else if(testType == 4){
-        u8g2.drawStr(3, 39, "Test Type: Battery Load Testing");
+        u8g2.drawStr(3, 26, "Test Type:");
+        u8g2.drawStr(3, 37, " - Battery Load Test - ");
     }
     u8g2.sendBuffer();
 
