@@ -1386,6 +1386,7 @@ void runBatteryTest(){
         delay(currentTestGain);
         wdt_reset();
     }
+    dataFile.close();
     wdt_disable();
 }
 
