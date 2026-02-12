@@ -35,7 +35,7 @@ extern void selectProfile();
 const int testDataInterval = 200; //in milliseconds, the amount of time between sensor reading and data writing cycles
 
 float testStartTime = 0;
-float testTime = 0;
+float testTime = 0; //ms
 float thrust = 0; //mN
 float torque = 0; //N.mm
 float airspeed = 0; //m/s
@@ -764,10 +764,15 @@ void readSensorData(){ //call to update all of the sensor data to match most rec
     motorEfficiency = abs(mechanicalPower/electricPower);
     propellerEfficiency = abs(propellerPower/mechanicalPower);
     systemEfficiency = abs(propellerPower/electricPower);
-    mahDrawn += current*1000*(float)(millis()-testTime)/(3600000.0);
+    mahDrawn += current*((float)millis() - (testTime + testStartTime))/((float)3600);
+    Serial.println(millis());
+    Serial.println(current);
+    Serial.println(testTime);
+    Serial.println();
+
 
     //IT IS IMPORTANT THAT TIME IS CALCULATED LAST, SINCE IT IS USED IN CALCULATION FOR MAH DRAWN
-    testTime = (millis() - testStartTime)/1000;
+    testTime = (millis() - testStartTime);
  
 }
 
@@ -999,7 +1004,7 @@ void writeSensorSD(){
 
     // Write one CSV row (Method 2: print-based)
 
-    dataFile.print(testTime, 3);            dataFile.print(','); // float
+    dataFile.print(testTime/1000, 3);            dataFile.print(','); // float
     dataFile.print(current, 3);             dataFile.print(','); // float
     dataFile.print(voltage, 3);             dataFile.print(','); // float
     dataFile.print(torque, 3);              dataFile.print(','); // float
@@ -1342,16 +1347,15 @@ void runBatteryTest(){
     //initialize the test variables
     bool testRunning = true;
     throttle = 0.0;
-    float targetMAHdraw = (float)targetAmpDraw*1000;
 
     while(testRunning){
 
         readSensorData(); //update current sensor to be used for adjusting the throttle
 
         Serial.println("Raw Current:" + String(current));
-        if(current < targetMAHdraw && throttle < testThrottleMax){
+        if(current < targetAmpDraw && throttle < testThrottleMax){
             throttle += 1;
-        } else if(current > targetMAHdraw && throttle > 0){
+        } else if(current > targetAmpDraw && throttle > 0){
             throttle -= 1;
         }
 
@@ -1382,6 +1386,7 @@ void runBatteryTest(){
         delay(currentTestGain);
         wdt_reset();
     }
+    wdt_disable();
 }
 
 void runTest(){//this method is in charge of deciding which test to run and then running it
