@@ -152,7 +152,7 @@ long rampSettleTime = 1000;
 long targetAmpDraw = 10; //target current draw you want to during depletion test, in amps
 long dischargeAmount = 1000; //total battery you want to deplete, in milli-amp-hours
 long currentTestGain = 50; // ms
-long volatageCuttoff = 38;
+long voltageCuttoff = 38;
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -260,7 +260,7 @@ MenuItem menus[] = {
                 {2231, "Discharge Amount (mAh)", TYPE_VALUE, 223, &dischargeAmount, NULL},
                 {2232, "Current Draw (A)", TYPE_VALUE, 223, &targetAmpDraw, NULL},
                 {2233, "Gain (ms)", TYPE_VALUE, 223, &currentTestGain, NULL},
-                {2234, "Voltage Cutoff (V)", TYPE_VALUE, 223, &volatageCuttoff, NULL},
+                {2234, "Voltage Cutoff (V)", TYPE_VALUE, 223, &voltageCuttoff, NULL},
         {23, "Configure Hardware", TYPE_SUBMENU, 2, NULL, NULL},
             {231, "RPM Marker Count", TYPE_VALUE, 23, &pulsesPerRev, NULL},
             {232, "RPM Update Rate (ms)", TYPE_VALUE, 23, &rpmUpdateRate, NULL},
@@ -1397,7 +1397,7 @@ void runBatteryTest(){
             testRunning = false;
             break; //exit the while loop
         }
-        if(getVoltage() > volatageCuttoff){
+        if(getVoltage() > voltageCuttoff){
             throttle = 0;
             setThrottle(throttle);
             testRunning = false;
