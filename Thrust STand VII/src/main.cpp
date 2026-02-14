@@ -152,7 +152,8 @@ long rampSettleTime = 1000;
 long targetAmpDraw = 10; //target current draw you want to during depletion test, in amps
 long dischargeAmount = 1000; //total battery you want to deplete, in milli-amp-hours
 long currentTestGain = 50; // ms
-long voltageCuttoff = 38;
+long voltageCuttoff = 38; //volts
+long batteryRecoveryTime = 30; //seconds
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -261,6 +262,7 @@ MenuItem menus[] = {
                 {2232, "Current Draw (A)", TYPE_VALUE, 223, &targetAmpDraw, NULL},
                 {2233, "Gain (ms)", TYPE_VALUE, 223, &currentTestGain, NULL},
                 {2234, "Voltage Cutoff (V)", TYPE_VALUE, 223, &voltageCuttoff, NULL},
+                {2235, "Sag Recover Time (s)", TYPE_VALUE, 223, &batteryRecoveryTime, NULL},
         {23, "Configure Hardware", TYPE_SUBMENU, 2, NULL, NULL},
             {231, "RPM Marker Count", TYPE_VALUE, 23, &pulsesPerRev, NULL},
             {232, "RPM Update Rate (ms)", TYPE_VALUE, 23, &rpmUpdateRate, NULL},
@@ -1381,34 +1383,57 @@ void runBatteryTest(){
         displaySensorData();
         writeSensorSD();
 
-        if(mahDrawn >= dischargeAmount){
-            Serial.println("Sufficient Amp Hours Drawn");
-            throttle = 0;
-            setThrottle(0);
-            testRunning = false;
-            break; //exit the while loop
-        }
-
         //check for test interrupts
         char userInput = customKeypad.getKey();
-        if(userInput){
+        if(userInput || mahDrawn >= dischargeAmount || voltage < voltageCuttoff){ //user cancel OR drawn current OR voltage cutoff
             throttle = 0;
             setThrottle(throttle);
             testRunning = false;
             break; //exit the while loop
-        }
-        if(getVoltage() > voltageCuttoff){
-            throttle = 0;
-            setThrottle(throttle);
-            testRunning = false;
-            break;
         }
 
         delay(currentTestGain);
         wdt_reset();
     }
-    dataFile.close();
+
+    //when the while loop is left, disable the watchdog
     wdt_disable();
+
+    //record data of the battery recovering from load, to see final resting voltage
+    long recoveryStart = millis();
+
+    while (millis() - recoveryStart < batteryRecoveryTime*1000) {
+        readSensorData();
+        writeSensorSD();
+
+        //display battery recovery screen
+        u8g2.clearBuffer();
+
+        u8g2.setFont(u8g2_font_t0_14b_tr);
+        u8g2.drawStr(5, 15, "Measuring Battery");
+        u8g2.drawStr(19, 26, "Recovery Time");
+
+        u8g2.setFont(u8g2_font_5x7_tr);
+        u8g2.drawStr(3, 35, "Please Wait:");
+        u8g2.drawStr(23, 43, "Voltage:");
+        u8g2.drawStr(28, 52, "Cancel: *");
+
+        u8g2.setCursor(69, 35); u8g2.print(batteryRecoveryTime-(millis()-recoveryStart)/1000);
+        u8g2.setCursor(69, 43); u8g2.print(voltage);
+
+        u8g2.sendBuffer();
+
+        char userInput = customKeypad.getKey();
+        if (userInput) {
+            break;
+        }
+        //wait a bit to avoid overloading SD
+        delay(50);
+    }
+
+    //close datafile at the end of it all
+    dataFile.close();
+
 }
 
 void runTest(){//this method is in charge of deciding which test to run and then running it
@@ -1476,6 +1501,7 @@ void setup() {
 //loop draws a menu and allows for navigation. Once something is selected, it does that function, then continues looping. 
 //If you would like your function to return to the main menu after completing, set the currentMenuId to zero at the end of your function runs
 void loop() { 
+
     drawMenu(currentMenuId);
     
     //wait for the user to press a key
