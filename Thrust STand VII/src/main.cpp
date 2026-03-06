@@ -882,6 +882,89 @@ void displaySensorData(){//call to display all relevant test data. Needs to be p
     u8g2.sendBuffer();   
 }
 
+//Parameter review screen, 
+//will return true if user exited asking to continue the test,
+//will return false if user exited asking to go back
+boolean smoothTestParameterReviewScreen(){
+    u8g2.clearBuffer(); //prepare the screen for writing
+    u8g2.setFont(u8g2_font_t0_12b_mf);
+    u8g2.setCursor(1, 18); u8g2.print("Smooth Params:"); 
+    u8g2.drawLine(0, 19, 128, 19); //draw line across bottom
+    u8g2.setFont(u8g2_font_5x7_tr);
+    u8g2.setCursor(1, 28); u8g2.print("Ramp Time (s): "); u8g2.print(rampTime); 
+    u8g2.setCursor(1, 35); u8g2.print("Top Hold Time (s): "); u8g2.print(topTime); 
+    u8g2.setCursor(1, 42); u8g2.print("Max Throttle (%): "); u8g2.print(testThrottleMax);
+    u8g2.setFont(u8g2_font_4x6_mr);
+    u8g2.drawStr(2, 56, "# to continue"); 
+    u8g2.drawStr(2, 62, "* to go back"); 
+    u8g2.sendBuffer();
+    while(true){
+        char userInput = customKeypad.getKey();
+        if (userInput && userInput == '*') { // go back
+            return false;
+        } else if (userInput && userInput == '#'){ // continue test
+            return true;
+        }
+    }
+    return false;
+}
+
+//Parameter review screen, 
+//will return true if user exited asking to continue the test,
+//will return false if user exited asking to go back
+boolean intervalParameterReviewScreen(){
+    u8g2.clearBuffer(); //prepare the screen for writing
+    u8g2.setFont(u8g2_font_t0_12b_mf);
+    u8g2.setCursor(1, 18); u8g2.print("Interval Params:"); 
+    u8g2.drawLine(0, 19, 128, 19); //draw line across bottom
+    u8g2.setFont(u8g2_font_5x7_tr); 
+    u8g2.setCursor(1, 28); u8g2.print("Interval Amount: "); u8g2.print(intervalCount);
+    u8g2.setCursor(1, 35); u8g2.print("Interval Time (s): "); u8g2.print(intervalTime);
+    u8g2.setCursor(1, 42); u8g2.print("Max Throttle (%): "); u8g2.print(testThrottleMax);
+    u8g2.setCursor(1, 49); u8g2.print("Settle Time (ms): "); u8g2.print(rampSettleTime); 
+    u8g2.setFont(u8g2_font_4x6_mr);
+    u8g2.drawStr(2, 56, "# to continue"); 
+    u8g2.drawStr(2, 62, "* to go back"); 
+    u8g2.sendBuffer();
+    while(true){
+        char userInput = customKeypad.getKey();
+        if (userInput && userInput == '*') { // go back
+            return false;
+        } else if (userInput && userInput == '#'){ // continue test
+            return true;
+        }
+    }
+    return false;
+}
+
+//Parameter review screen, 
+//will return true if user exited asking to continue the test,
+//will return false if user exited asking to go back
+boolean batteryTestParameterReviewScreen(){
+    u8g2.clearBuffer(); //prepare the screen for writing
+    u8g2.setFont(u8g2_font_t0_12b_mf);
+    u8g2.setCursor(1, 13); u8g2.print("Battery Params:"); 
+    u8g2.drawLine(0, 14, 128, 14); //draw line across bottom
+    u8g2.setFont(u8g2_font_5x7_tr);
+    u8g2.setCursor(1, 22); u8g2.print("Discharge (mAh): "); u8g2.print(dischargeAmount);
+    u8g2.setCursor(1, 29); u8g2.print("Current Draw (A): "); u8g2.print(intervalTime);
+    u8g2.setCursor(1, 36); u8g2.print("Gain (ms): "); u8g2.print(testThrottleMax);
+    u8g2.setCursor(1, 43); u8g2.print("Voltage Cutoff (V): "); u8g2.print(voltageCuttoff); 
+    u8g2.setCursor(1, 50); u8g2.print("Sag Recover Time (s): "); u8g2.print(batteryRecoveryTime); 
+    u8g2.setFont(u8g2_font_4x6_mr);
+    u8g2.drawStr(2, 62, "* to go back, # to continue"); 
+    u8g2.sendBuffer();
+    while(true){
+        char userInput = customKeypad.getKey();
+        if (userInput && userInput == '*') { // go back
+            return false;
+        } else if (userInput && userInput == '#'){ // continue test
+            return true;
+        }
+    }
+    return false;
+}
+
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 //DEBUG MENU
@@ -1228,7 +1311,9 @@ void steppedRamp(){
 
 void runPiecewiseTest(){
     esc.writeMicroseconds(MIN_THROTTLE);
-
+    if(!smoothTestParameterReviewScreen()){
+        return;
+    }
     if(!setUpTest()){
         return;
     }
@@ -1307,7 +1392,10 @@ void runPiecewiseTest(){
 
 void runSmoothRampTest(){ //give time in millis since starting the test, returns a struct containing info about throttle settings and whether to record data
     esc.writeMicroseconds(MIN_THROTTLE);
-
+    if(!smoothTestParameterReviewScreen()){
+        return;
+    }
+  
     if(!setUpTest()){
         return;
     }
@@ -1316,7 +1404,7 @@ void runSmoothRampTest(){ //give time in millis since starting the test, returns
     wdt_reset();
 
     resetSensorData(); //this line makes sure that if a sensor is missing, it shows as zero and not the value of the last test
-    
+
     smoothRamp();  //start up the motor and do the thing
 
     throttle = 0;
@@ -1327,6 +1415,9 @@ void runSmoothRampTest(){ //give time in millis since starting the test, returns
 }
 
 void runSteppedRampTest(){
+    if(!intervalParameterReviewScreen()){
+        return;
+    }
     if(!setUpTest()){
         return;
     }
@@ -1346,6 +1437,9 @@ void runSteppedRampTest(){
 }
 
 void runBatteryTest(){
+    if(!batteryTestParameterReviewScreen()){
+        return;
+    }
     if(!setUpTest()){
         return;
     }
