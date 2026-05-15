@@ -1311,7 +1311,7 @@ void steppedRamp(){
 
 void runPiecewiseTest(){
     esc.writeMicroseconds(MIN_THROTTLE);
-    if(!smoothTestParameterReviewScreen()){
+    if(!intervalParameterReviewScreen()){
         return;
     }
     if(!setUpTest()){
